@@ -1,7 +1,6 @@
 import discord
 import asyncio
 import matplotlib.pyplot as plt
-from collections import Counter
 
 client = discord.Client()
 
