@@ -38,7 +38,6 @@ async def parse_command(command_string, command_channel):
         try:
             result = await command_list[primary_command](command_channel, *args)
         except TypeError as e:
-            print(e)
             result = "Error: Wrong number of arguments given"
     else:
         result = "Error: That command doesn't exist"
@@ -112,7 +111,7 @@ async def hourly_activity():
     for channel in public_pubg_channels:
 
         log_channel = client.get_channel(str(channel))
-        print(channel, log_channel)
+        print("Counting messages in ", log_channel)
 
         message_log = client.logs_from(log_channel, limit=1000)
 
