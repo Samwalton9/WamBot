@@ -28,11 +28,6 @@ async def on_message(message):
 
 async def parse_command(command_string, command_channel):
 
-    command_list = {
-        'hourlyactivity': hourly_activity,
-        'loghistory': log_history
-    }
-
     split_command = command_string[1:].split(" ")
     primary_command = split_command[0]
 
@@ -41,7 +36,7 @@ async def parse_command(command_string, command_channel):
         try:
             result = await command_list[primary_command](command_channel, *args)
         except TypeError as e:
-            print(e)
+            #print(e)
             result = "Error: Wrong number of arguments given"
     else:
         result = "Error: That command doesn't exist"
@@ -49,35 +44,53 @@ async def parse_command(command_string, command_channel):
     if result:
         await client.send_message(command_channel, content=result)
 
-async def hourly_activity(command_channel, message_limit):
+async def hourly_activity(command_channel, user_type, message_limit):
 
-    try:
-        limit_int = int(message_limit)
-    except ValueError:
-        error_message = "Error: Please use a number."
-        return error_message
+    if user_type == 'mods':
+        try:
+            limit_int = int(message_limit)
+        except ValueError:
+            error_message = "Error: Please use a number."
+            return error_message
 
-    collecting_message = await client.send_message(
-        command_channel, content="Collecting data...")
+        collecting_message = await client.send_message(
+            command_channel, content="Collecting data...")
 
-    #log_channel = client.get_channel('382550498533703680')  # bot-testing
-    log_channel = client.get_channel('302525012143898631')  # mod-log
+        #log_channel = client.get_channel('382550498533703680')  # bot-testing
+        log_channel = client.get_channel('302525012143898631')  # mod-log
 
-    hours_log = []
+        hours_log = []
 
-    async for historical_message in client.logs_from(log_channel, limit=limit_int):
-        if historical_message.content.startswith('!'):
-            message_hour = historical_message.timestamp.hour
-            hours_log.append(message_hour)
+        async for historical_message in client.logs_from(log_channel, limit=limit_int):
+            if historical_message.content.startswith('!'):
+                message_hour = historical_message.timestamp.hour
+                hours_log.append(message_hour)
 
-    public_log = await user_activity()
+        public_log = await user_activity()
+
+    else:
+        try:
+            user_id = int(user_type)
+        except ValueError:
+            pubattlegrounds = client.get_server('289466476187090944')
+            user_id = pubattlegrounds.get_member_named(user_type).id
+
+        user_id = str(user_id)
+        collecting_message = await client.send_message(
+            command_channel, content="Collecting data...")
+
+        user_mentioned = await client.get_user_info(user_id)
+        print(user_mentioned)
+
+        hours_log = await user_activity(user_name=user_mentioned, message_limit=limit_int)
 
     f = plt.figure()
 
     plot_args = {'bins':24, 'range':(0,24), 'normed':True, 'histtype':'step'}
 
     plt.hist(hours_log, color='black', **plot_args)
-    plt.hist(public_log, color='red', **plot_args)
+    if user_type == 'mods':
+        plt.hist(public_log, color='red', **plot_args)
 
     x1, x2, y1, y2 = plt.axis()
     plt.axis((0,24,y1,y2))
@@ -96,7 +109,7 @@ async def hourly_activity(command_channel, message_limit):
                            'graphs/message_log.png',
                            filename='Modlog history.png')
 
-async def user_activity():
+async def user_activity(user_name=None, message_limit):
     all_channels = client.get_all_channels()
     public_channels = [289466476187090944, 300462993995726848,
                        289468705878966277,
@@ -109,16 +122,19 @@ async def user_activity():
                     or 'eu-' in channel.name)]
 
     public_pubg_channels = public_channels + lfg_channels
-    
+
     hours_log = []
     for channel in public_pubg_channels:
 
         log_channel = client.get_channel(str(channel))
-        print("Counting messages in ", log_channel)
+        print("Counting messages in", log_channel)
 
-        async for historical_message in client.logs_from(log_channel, limit=2000):
+        async for historical_message in client.logs_from(log_channel, limit=message_limit):
             message_hour = historical_message.timestamp.hour
-            hours_log.append(message_hour)
+            if user_name and historical_message.author == user_name:
+                hours_log.append(message_hour)
+            elif not user_name:
+                hours_log.append(message_hour)
 
     return hours_log
 
@@ -177,4 +193,11 @@ async def log_history(command_channel, num_days, action=''):
 
 with open('bot_token') as f:
     token = f.readline().strip()
+
+command_list = {
+    'hourlyactivity': hourly_activity,
+    'loghistory': log_history
+}
+
+
 client.run(token)
